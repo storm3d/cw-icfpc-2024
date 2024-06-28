@@ -2,8 +2,6 @@ const https = require('https');
 const fs = require('fs');
 const findPath = require('./lambdaman.js');
 
-module.exports = findPath;
-
 
 // Load the token from a file
 const token = fs.readFileSync('auth_token.txt', 'utf8').trim();
@@ -96,6 +94,7 @@ async function comm(raw) {
           reject(new Error(`Request Failed. Status Code: ${res.statusCode}`));
         } else {
           try {
+            //console.log("Comm result raw:", responseBody)
             const decoded = decodeToken(responseBody);
             resolve(decoded);
           } catch (e) {
@@ -124,26 +123,11 @@ async function lambdamanlist(num) {
   }
 }
 
-async function lambdasolve(num) {
-  try {
-
-    const task = "lambdaman" + num
-    const result = await comm('get ' + task);
-    console.log('Result:', result);
-
-    let path = findPath(result)
-    console.log('Path:', path);
-
-    const result2 = await comm('solve ' + task + ' ' + path);
-    console.log('Result:', result2);
-
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
-
 // Call the main function
-lambdasolve(8);
+//lambdasolve(8);
 //lambdamanlist();
 
+//console.log(decodeToken('B. SF B$ B$ L" B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L$ L# ? B= v# I" v" B. v" B$ v$ B- v# I" Sl I#'))
 
+
+module.exports = {comm, encodeString};
