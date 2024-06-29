@@ -239,6 +239,105 @@ class Environment {
     }
 }
 
+function evaluate(rootExpr, rootEnv = new Environment()) {
+    let stack = [{ expr: rootExpr, env: rootEnv, cont: (result) => result }];
+    let value;
+
+    while (stack.length > 0) {
+        const { expr, env, cont } = stack.pop();
+        console.log('Evaluating:', expr, env, cont);
+
+        if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
+            value = cont(expr.value);
+        } else if (expr instanceof Var) {
+            try {
+                value = env.lookup(expr.name);
+            } catch (error) {
+                console.error(error.message);
+                throw error;  // or handle it according to your error management strategy
+            }
+            value = cont(value);
+        } else if (expr instanceof Lambda) {
+            value = cont((arg) => {
+                return () => {
+                    const lambdaEnv = env.extend();
+                    lambdaEnv.define(expr.param, arg);  // Bind the parameter to the argument
+                    stack.push({ expr: expr.body, env: lambdaEnv, cont: (result) => result });
+                };
+            });
+
+        } else if (expr instanceof UnaryOp) {
+            stack.push({ expr: expr.operand, env, cont: (operand) => {
+                switch (expr.operator) {
+                    case '-': return cont(-operand);
+                    case '!': return cont(!operand);
+                    case '#': return cont(parseBase94ToInt(encodeString(operand)));
+                    case '$': return cont(decodeString(intToBase94(operand)));
+                    default: throw new Error(`Unknown unary operator: ${expr.operator}`);
+                }
+            }});
+        } else if (expr instanceof BinaryOp) {
+            if(expr.operator === '$') {
+                // Evaluate the function part (should be a lambda)
+                stack.push({
+                    expr: expr.left,
+                    env,
+                    cont: (func) => {
+                        if (typeof func !== 'function') {
+                            throw new Error("Expected a function to apply.");
+                        }
+                        // Evaluate the argument part
+                        stack.push({
+                            expr: expr.right,
+                            env: env.extend(),
+                            cont: (arg) => {
+                                // Apply the function (which is a closure from a lambda)
+                                const closure = func(arg);
+                                if (typeof closure !== 'function') {
+                                    throw new Error("The lambda application did not return a callable result.");
+                                }
+                                // Execute the closure and use its result
+                                closure();
+                            }
+                        });
+                    }
+                });
+            }
+            else {
+                stack.push({ expr: expr.left, env, cont: (left) => {
+                    stack.push({ expr: expr.right, env, cont: (right) => {
+                        switch (expr.operator) {
+                            case '+': return cont(left + right);
+                            case '-': return cont(left - right);
+                            case '*': return cont(left * right);
+                            case '/': return cont(Math.trunk(left / right));
+                            case '%': return cont(left % right);
+                            case '>': return cont(left > right);
+                            case '<': return cont(left < right);
+                            case '=': return cont(left === right);
+                            case '|': return cont(left || right);
+                            case '&': return cont(left && right);
+                            case '.': return cont(`${left}${right}`);
+                            case 'T': return cont(left.substring(0, right));
+                            case 'D': return cont(left.substring(0, left.length - right));
+                            // Add cases for other binary operators
+                            default: throw new Error("Unsupported binary operator " + expr.operator);
+                        }
+                    }});
+                }});
+            }
+        } else if (expr instanceof Conditional) {
+            stack.push({ expr: expr.condition, env, cont: (condition) => {
+                stack.push({ expr: condition ? expr.trueBranch : expr.falseBranch, env, cont });
+            }});
+        }
+    }
+
+    return value;  // The final result after all expressions are evaluated
+}
+
+
+/*
 function evaluate(expr, env = new Environment()) {
     if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
         return expr.value;
@@ -311,6 +410,7 @@ function evaluate(expr, env = new Environment()) {
         }
     }
 }
+*/
 
 function evaluateUnary(operator, operand) {
     console.log(`Unary operation ${operator} on: ${operand}`);

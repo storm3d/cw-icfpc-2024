@@ -6,11 +6,11 @@ function runTest(description, input, expected) {
     try {
         const expr = eval.parse(input);
         actual = eval.evaluate(expr);
-        console.assert(actual === expected, `${description}: Expected ${expected}, got ${actual}`);
+        assert(actual === expected, `${description}: Expected ${expected}, got ${actual}`);
         console.log(`Passed: ${description}`);
     } catch (error) {
-        console.error(`Failed: ${description}\nError: ${error.message}\nExpected: ${expected}\nActual: ${actual}`);
-        console.error('Assertion failed:', `${description}: Expected ${expected}, got ${actual}`);
+        //console.error(`Failed: ${description}\nError: ${error.message}\nExpected: ${expected}\nActual: ${actual}`);
+        console.error('Failed:', `${description}: Expected ${expected}, got ${actual}`);
     }
 }
 
@@ -98,22 +98,36 @@ function testICFPEvaluator() {
     runBinaryTest('Drop first x chars of string y', 'D', 1, "test", "est");
 
     runTest('mul of negations', 'B* U- I$ U- I$', 9);
+    runTest('mul of muls', 'B* B* I$ I# B* I$ I#', 36);
 
     // Test conditionals
     runTest('Conditional true branch', '? T S! S"', 'a');  // Assuming 'S!' decodes to 'a'
     runTest('Conditional false branch', '? F S! S"', 'b');  // Assuming 'S"' decodes to 'b'
-    runTest('If', '? B> I# I$ S9%3 S./', 'no');
+    runTest('If from spec', '? B> I# I$ S9%3 S./', 'no');
+
+    runTest('Conditional true branch comp', '? T B* B* I$ I# B* I$ I# S"', 36);
+    runTest('Conditional false branch comp', '? F B* B* I$ I# B* I$ I# B* U- I$ U- I$', 9);
 
     // Test labmda abstractions and applications
+    runTest('Lambda simple', 'B$ L" v" I$', 3);
+    runTest('Lambda simple mul body', 'B$ L" v" B* I$ I$', 9);
+    runTest('Lambda simple add arg', 'B$ L" B+ v" v" I$', 6);
+    runTest('Lambda simple ops arg and body', 'B$ L" B+ v" v" B* I$ I#', 12);
+
+    runTest('Lambda nested simple', 'B$ B$ L# L$ v# I$', 666);
+    runTest('Lambda nested spec', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);
+
     runTest('Spec lambda', 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK', 'Hello World!');
-    runTest('Spec eval', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);
+    
+    
     runTest('Spec limit', 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%', 16);
 }
 
 // Run the test function
 //testICFPEvaluator();
 
-let expr = eval.parse('B. SF B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I;Y S B. ? B= B% v# IS I! S~ S B. ? B= B% v# I, I! Sa Sl B$ v" B+ v# I" I"');
+//let expr = eval.parse('B$ B$ L# L$ v# I$ I$');
+//let expr = eval.parse('B$ L" v" B* I$ I$');
 console.log(expr);
 console.log(eval.evaluate(expr));
 
