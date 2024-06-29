@@ -250,47 +250,65 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             value = cont(expr.value);
         } else if (expr instanceof Var) {
-            let val = env.lookup(expr.name);
-            if (typeof val === 'function') {
-                val = val();
-            }
-            value = cont(val);
+            let val = env.lookup(expr.name);            
+            //console.log('Var:', expr.name, val, typeof val);
+            value = cont(typeof val === 'function' ? val() : val);
         } else if (expr instanceof Lambda) {
-            value = cont((argThunk) => {
+            // When lambda is evaluated, return a function that sets up the proper environment and pushes the lambda body onto the stack
+            value = cont((arg) => {
+                const lambdaEnv = env.extend(); // Extend the current environment
+                lambdaEnv.define(expr.param, arg); // Define the parameter with the passed argument
                 return () => {
-                    const lambdaEnv = env.extend();
-                    lambdaEnv.define(expr.param, argThunk);
-                    return evaluate(expr.body, lambdaEnv);
+                    stack.push({ expr: expr.body, env: lambdaEnv, cont }); // Push the body to be evaluated in the new environment
                 };
             });
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
                 stack.push({
-                    expr: expr.left,
+                    expr: expr.left,  // Evaluate the function part first
                     env,
                     cont: (func) => {
+                        //console.log('Function:', func);
+                        //console.log('Function type:', typeof func);
                         if (typeof func !== 'function') {
-                            throw new Error('Expected a function for application, got ' + typeof func);
+                            return cont(func);  // If not a function, return the value as is
                         }
-                        // Create a thunk for the argument without evaluating it
-                        let argThunk = () => evaluate(expr.right, env.extend());
-
-                        // Pass the thunk to the function; do not execute it here
-                        let result = func(argThunk);
-                        return cont(result instanceof Function ? result() : result);                        
+        
+                        stack.push({
+                            expr: expr.right,  // Then evaluate the argument part
+                            env,
+                            cont: (arg) => {
+                                // Apply the function to the argument
+                                let result = func(() => arg); // arg is passed as a thunk
+        
+                                // Check if the result of applying the function is itself a function
+                                if (typeof result === 'function') {
+                                    // If it's a function, it needs to be evaluated
+                                    stack.push({
+                                        expr: result(), // Evaluate this function
+                                        env,
+                                        cont: (evaluatedResult) => {
+                                            // Pass the evaluated result up
+                                            return cont(evaluatedResult);
+                                        }
+                                    });
+                                } else {
+                                    // If not a function, pass the result directly up
+                                    return cont(result);
+                                }
+                            }
+                        });
                     }
                 });
             }
             else {
                 stack.push({ expr: expr.left, env, cont: (left) => {
-                    //console.log("Left value for Binary:", left);  // Debugging output
                     stack.push({ expr: expr.right, env, cont: (right) => {
-                        //console.log("Right value for Binary:", right);  // Debugging output
                         switch (expr.operator) {                            
                             case '+': return cont(left + right);
                             case '-': return cont(left - right);
                             case '*': return cont(left * right);
-                            case '/': return cont(Math.trunk(left / right));
+                            case '/': return cont(Math.trunc(left / right));
                             case '%': return cont(left % right);
                             case '>': return cont(left > right);
                             case '<': return cont(left < right);
@@ -298,9 +316,8 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                             case '|': return cont(left || right);
                             case '&': return cont(left && right);
                             case '.': return cont(`${left}${right}`);
-                            case 'T': return cont(left.substring(0, right));
-                            case 'D': return cont(left.substring(0, left.length - right));
-                            // Add cases for other binary operators
+                            case 'T': return cont(right.slice(0, left));
+                            case 'D': return cont(right.slice(left));                            
                             default: throw new Error("Unsupported binary operator " + expr.operator);
                         }
                     }});
@@ -310,9 +327,7 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
             //console.log('Unary pushed:', expr.operator, expr.operand);
             stack.push({ expr: expr.operand, env, cont: (operand) => {
                 switch (expr.operator) {
-                    case '-': 
-                    //console.log("Negating:", operand);  // Debugging output
-                    return cont(-operand);
+                    case '-': return cont(-operand);
                     case '!': return cont(!operand);
                     case '#': return cont(parseBase94ToInt(encodeString(operand)));
                     case '$': return cont(decodeString(intToBase94(operand)));

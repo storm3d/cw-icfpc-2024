@@ -14,49 +14,6 @@ function runTest(description, input, expected) {
     }
 }
 
-function runBinaryTest(description, operator, operand1, operand2, expected) {
-    try {
-        const result = evaluateBinary(operator, operand1, operand2);
-        console.assert(result === expected, `Test failed: ${description}. Expected ${expected}, got ${result}`);
-        console.log(`Passed: ${description}`);
-    } catch (error) {
-        console.error(`Failed: ${description}. Error: ${error.message}`);
-    }
-}
-
-function evaluateBinary(operator, operand1, operand2) {
-    switch (operator) {
-        case '+':
-            return operand1 + operand2;
-        case '-':
-            return operand1 - operand2;
-        case '*':
-            return operand1 * operand2;
-        case '/':
-            return Math.trunc(operand1 / operand2);
-        case '%':
-            return operand1 % operand2;
-        case '<':
-            return operand1 < operand2;
-        case '>':
-            return operand1 > operand2;
-        case '=':
-            return operand1 === operand2;
-        case '|':
-            return operand1 || operand2;
-        case '&':
-            return operand1 && operand2;
-        case '.':
-            return `${operand1}${operand2}`;
-        case 'T':
-            return operand2.slice(0, operand1);
-        case 'D':
-            return operand2.slice(operand1);
-        default:
-            throw new Error(`Unsupported binary operator: ${operator}`);
-    }
-}
-
 function testICFPEvaluator() {
     // Test Boolean literals
     runTest('Evaluate True', 'T', true);
@@ -83,19 +40,19 @@ function testICFPEvaluator() {
     runTest('concat-to-int: interpret a string as a base-94 number', 'U# B. S4% S34', 15818151);
 
     // Test binary operators
-    runBinaryTest('Integer addition', '+', 3, 2, 5);
-    runBinaryTest('Integer subtraction', '-', 3, 2, 1);
-    runBinaryTest('Integer multiplication', '*', 2, 3, 6);
-    runBinaryTest('Integer division', '/', -9, 3, -3);
-    runBinaryTest('Integer modulo', '%', -3, 2, -1);
-    runBinaryTest('Integer comparison less', '<', 2, 3, true);
-    runBinaryTest('Integer comparison greater', '>', 3, 2, true);
-    runBinaryTest('Equality comparison', '=', 2, 3, false);
-    runBinaryTest('Boolean OR', '|', false, true, true);
-    runBinaryTest('Boolean AND', '&', true, false, false);
-    runBinaryTest('String concatenation', '.', "Hello ", "World", "Hello World");
-    runBinaryTest('Take first x chars of string y', 'T', 3, "test", "tes");
-    runBinaryTest('Drop first x chars of string y', 'D', 1, "test", "est");
+    runTest('Integer addition', 'B+ I# I$', 5);
+    runTest('Integer subtraction', 'B- I$ I#', 1);
+    runTest('Integer multiplication', 'B* I$ I#', 6);
+    runTest('Integer division', 'B/ U- I( I#', -3);
+    runTest('Integer modulo', 'B% U- I( I#', -1);
+    runTest('Integer comparison less', 'B< I$ I#', false);
+    runTest('Integer comparison greater', 'B> I$ I#', true);
+    runTest('Equality comparison', 'B= I$ I#', false);
+    runTest('Boolean OR', 'B| T F', true);
+    runTest('Boolean AND', 'B& T F', false);
+    runTest('String concatenation', 'B. S4% S34', "test");
+    runTest('Take first x chars of string y', 'BT I$ S4%34', "tes");
+    runTest('Drop first x chars of string y', 'BD I$ S4%34', "t");
 
     runTest('mul of negations', 'B* U- I$ U- I$', 9);
     runTest('mul of muls', 'B* B* I$ I# B* I$ I#', 36);
@@ -135,7 +92,7 @@ testICFPEvaluator();
 //let expr = eval.parse('B$ L" v" I$');
 //let expr = eval.parse('B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%');
 //let expr = eval.parse('B$ L# B$ L" B+ v" v" B* I$ I# v8');
-let expr = eval.parse('B$ L# I- v8');
+let expr = eval.parse('B$ L" B+ v" v" I$');
 //console.log(expr);
 //console.log("Evaluated recursive:", eval.evaluater(expr));
 console.log("Evaluated:", eval.evaluate(expr));
