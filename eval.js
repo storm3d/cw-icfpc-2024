@@ -250,26 +250,27 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             value = cont(expr.value);
         } else if (expr instanceof Var) {
-            try {
-                value = env.lookup(expr.name);
-            } catch (error) {
-                console.error(error.message);
-                throw error;  // or handle it according to your error management strategy
+            let val = env.lookup(expr.name); // look up the variable in the current environment
+            if (typeof val === 'function') {
+                // If the variable is a function (possibly a thunk), execute it
+                val = val();
             }
-            value = cont(value);
+            value = cont(val); // pass the variable value to the continuation
         } else if (expr instanceof Lambda) {
-            value = cont((arg) => {
+            value = cont((argThunk) => {
                 return () => {
                     const lambdaEnv = env.extend();
-                    lambdaEnv.define(expr.param, arg);  // Bind the parameter to the argument
-                    stack.push({ expr: expr.body, env: lambdaEnv, cont: (result) => result });
+                    lambdaEnv.define(expr.param, argThunk());
+                    return evaluate(expr.body, lambdaEnv);
                 };
             });
-
         } else if (expr instanceof UnaryOp) {
+            console.log('Unary pushed:', expr.operator, expr.operand);
             stack.push({ expr: expr.operand, env, cont: (operand) => {
                 switch (expr.operator) {
-                    case '-': return cont(-operand);
+                    case '-': 
+                    console.log("Negating:", operand);  // Debugging output
+                    return cont(-operand);
                     case '!': return cont(!operand);
                     case '#': return cont(parseBase94ToInt(encodeString(operand)));
                     case '$': return cont(decodeString(intToBase94(operand)));
@@ -278,26 +279,19 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
             }});
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
-                // Evaluate the function part (should be a lambda)
                 stack.push({
                     expr: expr.left,
                     env,
                     cont: (func) => {
                         if (typeof func !== 'function') {
-                            throw new Error("Expected a function to apply.");
+                            throw new Error('Expected a function for application, got ' + typeof func);
                         }
-                        // Evaluate the argument part
                         stack.push({
                             expr: expr.right,
                             env: env.extend(),
                             cont: (arg) => {
-                                // Apply the function (which is a closure from a lambda)
-                                const closure = func(arg);
-                                if (typeof closure !== 'function') {
-                                    throw new Error("The lambda application did not return a callable result.");
-                                }
-                                // Execute the closure and use its result
-                                closure();
+                                let result = func(() => arg);  // Assume arg needs to be wrapped in a thunk
+                                return cont(result instanceof Function ? result() : result);
                             }
                         });
                     }
@@ -305,8 +299,10 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
             }
             else {
                 stack.push({ expr: expr.left, env, cont: (left) => {
+                    console.log("Left value for Binary:", left);  // Debugging output
                     stack.push({ expr: expr.right, env, cont: (right) => {
-                        switch (expr.operator) {
+                        console.log("Right value for Binary:", right);  // Debugging output
+                        switch (expr.operator) {                            
                             case '+': return cont(left + right);
                             case '-': return cont(left - right);
                             case '*': return cont(left * right);

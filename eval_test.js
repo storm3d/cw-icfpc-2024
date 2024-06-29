@@ -110,11 +110,16 @@ function testICFPEvaluator() {
 
     // Test labmda abstractions and applications
     runTest('Lambda simple', 'B$ L" v" I$', 3);
+    runTest('Lambda negation', 'U- B$ L" v" I$', -3);
+    runTest('Addition of two Lambdas simple', 'B+ B$ L" v" I$ B$ L" v" I$', 6);
+
     runTest('Lambda simple mul body', 'B$ L" v" B* I$ I$', 9);
     runTest('Lambda simple add arg', 'B$ L" B+ v" v" I$', 6);
+    
+
     runTest('Lambda simple ops arg and body', 'B$ L" B+ v" v" B* I$ I#', 12);
 
-    runTest('Lambda nested simple', 'B$ B$ L# L$ v# I$', 666);
+    runTest('Lambda nested simple', 'B$ L$ B$ L" v" I$ I"', 3);
     runTest('Lambda nested spec', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);
 
     runTest('Spec lambda', 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK', 'Hello World!');
@@ -126,10 +131,13 @@ function testICFPEvaluator() {
 // Run the test function
 //testICFPEvaluator();
 
+//let expr = eval.parse('B$ L" v" I$');
 //let expr = eval.parse('B$ B$ L# L$ v# I$ I$');
-//let expr = eval.parse('B$ L" v" B* I$ I$');
+
+
+let expr = eval.parse('B$ L# B$ L" B+ v" v" B* I$ I# v8');
 console.log(expr);
-console.log(eval.evaluate(expr));
+console.log("Evaluated:", eval.evaluate(expr));
 
 /*
 let expr = parse("B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK");
