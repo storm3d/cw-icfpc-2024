@@ -1,7 +1,7 @@
 const https = require('https');
 const fs = require('fs');
 const findPath = require('./lambdaman.js');
-
+const eval = require('./eval.js');
 
 // Load the token from a file
 const token = fs.readFileSync('auth_token.txt', 'utf8').trim();
@@ -94,8 +94,9 @@ async function comm(raw) {
           reject(new Error(`Request Failed. Status Code: ${res.statusCode}`));
         } else {
           try {
-            //console.log("Comm result raw:", responseBody)
-            const decoded = decodeToken(responseBody);
+            console.log("Comm result raw:", responseBody)
+            const expr = eval.parse(responseBody);
+            const decoded = eval.evaluate(expr);
             resolve(decoded);
           } catch (e) {
             reject(e);

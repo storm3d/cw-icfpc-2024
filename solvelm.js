@@ -1,5 +1,5 @@
-const comm = require('./request.js');
-const findPath = require('./lambdaman.js');
+const r = require('./request.js');
+const lm = require('./lambdaman.js');
 
 
 // Access the command-line arguments
@@ -24,13 +24,13 @@ async function lambdasolve(num) {
     try {
   
       const task = "lambdaman" + num
-      const result = await comm('get ' + task);
+      const result = await r.comm('get ' + task);
       console.log('Result:', result);
   
-      let path = findPath(result)
+      let path = lm.findPath(result)
       console.log('Path:', path);
   
-      const result2 = await comm('solve ' + task + ' ' + path);
+      const result2 = await r.comm('solve ' + task + ' ' + path);
       console.log('Result:', result2);
   
     } catch (error) {

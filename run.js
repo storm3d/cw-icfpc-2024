@@ -1,4 +1,4 @@
-const comm = require('./request.js');
+const r = require('./request.js');
 
 
 // Access the command-line arguments
@@ -21,7 +21,7 @@ const concatenatedArgs = args.join(' ');
 
 async function run(arg) {
     try {
-      const result = await comm(arg);
+      const result = await r.comm(arg);
       console.log('Result:', result);
   
     } catch (error) {
