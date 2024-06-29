@@ -245,38 +245,24 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 
     while (stack.length > 0) {
         const { expr, env, cont } = stack.pop();
-        console.log('Evaluating:', expr, env, cont);
+        //console.log('Evaluating:', expr, env, cont);
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             value = cont(expr.value);
         } else if (expr instanceof Var) {
-            let val = env.lookup(expr.name); // look up the variable in the current environment
+            let val = env.lookup(expr.name);
             if (typeof val === 'function') {
-                // If the variable is a function (possibly a thunk), execute it
                 val = val();
             }
-            value = cont(val); // pass the variable value to the continuation
+            value = cont(val);
         } else if (expr instanceof Lambda) {
             value = cont((argThunk) => {
                 return () => {
                     const lambdaEnv = env.extend();
-                    lambdaEnv.define(expr.param, argThunk());
+                    lambdaEnv.define(expr.param, argThunk);
                     return evaluate(expr.body, lambdaEnv);
                 };
             });
-        } else if (expr instanceof UnaryOp) {
-            console.log('Unary pushed:', expr.operator, expr.operand);
-            stack.push({ expr: expr.operand, env, cont: (operand) => {
-                switch (expr.operator) {
-                    case '-': 
-                    console.log("Negating:", operand);  // Debugging output
-                    return cont(-operand);
-                    case '!': return cont(!operand);
-                    case '#': return cont(parseBase94ToInt(encodeString(operand)));
-                    case '$': return cont(decodeString(intToBase94(operand)));
-                    default: throw new Error(`Unknown unary operator: ${expr.operator}`);
-                }
-            }});
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
                 stack.push({
@@ -286,22 +272,20 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                         if (typeof func !== 'function') {
                             throw new Error('Expected a function for application, got ' + typeof func);
                         }
-                        stack.push({
-                            expr: expr.right,
-                            env: env.extend(),
-                            cont: (arg) => {
-                                let result = func(() => arg);  // Assume arg needs to be wrapped in a thunk
-                                return cont(result instanceof Function ? result() : result);
-                            }
-                        });
+                        // Create a thunk for the argument without evaluating it
+                        let argThunk = () => evaluate(expr.right, env.extend());
+
+                        // Pass the thunk to the function; do not execute it here
+                        let result = func(argThunk);
+                        return cont(result instanceof Function ? result() : result);                        
                     }
                 });
             }
             else {
                 stack.push({ expr: expr.left, env, cont: (left) => {
-                    console.log("Left value for Binary:", left);  // Debugging output
+                    //console.log("Left value for Binary:", left);  // Debugging output
                     stack.push({ expr: expr.right, env, cont: (right) => {
-                        console.log("Right value for Binary:", right);  // Debugging output
+                        //console.log("Right value for Binary:", right);  // Debugging output
                         switch (expr.operator) {                            
                             case '+': return cont(left + right);
                             case '-': return cont(left - right);
@@ -322,6 +306,19 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                     }});
                 }});
             }
+        } else if (expr instanceof UnaryOp) {
+            //console.log('Unary pushed:', expr.operator, expr.operand);
+            stack.push({ expr: expr.operand, env, cont: (operand) => {
+                switch (expr.operator) {
+                    case '-': 
+                    //console.log("Negating:", operand);  // Debugging output
+                    return cont(-operand);
+                    case '!': return cont(!operand);
+                    case '#': return cont(parseBase94ToInt(encodeString(operand)));
+                    case '$': return cont(decodeString(intToBase94(operand)));
+                    default: throw new Error(`Unknown unary operator: ${expr.operator}`);
+                }
+            }});
         } else if (expr instanceof Conditional) {
             stack.push({ expr: expr.condition, env, cont: (condition) => {
                 stack.push({ expr: condition ? expr.trueBranch : expr.falseBranch, env, cont });
@@ -332,9 +329,8 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     return value;  // The final result after all expressions are evaluated
 }
 
-
 /*
-function evaluate(expr, env = new Environment()) {
+function evaluater(expr, env = new Environment()) {
     if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
         return expr.value;
     } else if (expr instanceof Var) {
@@ -349,11 +345,6 @@ function evaluate(expr, env = new Environment()) {
             localEnv.define(expr.param, arg);
             return evaluate(expr.body, localEnv);
         };
-    } else if (expr instanceof App) {
-        let func = evaluate(expr.func, env);
-        // Call-by-name: wrap argument in a thunk
-        let argThunk = () => evaluate(expr.arg, env.extend());
-        return func(argThunk);
     } else if (expr instanceof UnaryOp) {
         let operand = evaluate(expr.operand, env);
         switch (expr.operator) {
@@ -406,7 +397,6 @@ function evaluate(expr, env = new Environment()) {
         }
     }
 }
-*/
 
 function evaluateUnary(operator, operand) {
     console.log(`Unary operation ${operator} on: ${operand}`);
@@ -423,7 +413,7 @@ function evaluateUnary(operator, operand) {
             throw new Error(`Unsupported unary operator: ${operator}`);
     }
 }
-
+*/
 let reductions = 0;
 
-module.exports = { parse, evaluate };
+module.exports = { parse, evaluate};

@@ -70,7 +70,7 @@ function findPath(gridString) {
 // Example grid as a single string
 const gridString = "......\n.#....\n..#...\n...#..\n..#L#.\n.#...#\n......";
 
-console.log(findPath(gridString));
+//console.log(findPath(gridString));
 
 
 

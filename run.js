@@ -10,8 +10,6 @@ const args = process.argv.slice(2); // Remove the first two elements
 // Example usage: node app.js arg1 arg2 arg3
 // Output: Command-line arguments: [ 'arg1', 'arg2', 'arg3' ]
 
-let ac = "";
-
 // You can process the arguments as needed
 args.forEach((arg, index) => {
   console.log(`Argument ${index + 1}: ${arg}`);
