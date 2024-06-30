@@ -66,7 +66,7 @@ function encodeString(inputString) {
 }
 
 async function comm(raw) {
-  const data = raw;// encodeString(raw);
+  const data = encodeString(raw);
   const host = 'boundvariable.space';
   const url = '/communicate';
 

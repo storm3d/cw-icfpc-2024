@@ -1,12 +1,12 @@
 function evaluater(expr, env = new Environment()) {
-    console.log('Evaluating:', expr.toString());
+    //console.log('Evaluating:', expr.toString());
 
     if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
         return expr.value;
     } else if (expr instanceof Var) {
         let value = env.lookup(expr.name);
         // If the result is a thunk (function), evaluate it to get the actual value
-        console.log('Var lookup:', expr.name, value);
+        //console.log('Var lookup:', expr.name, value);
         return typeof value === 'function' ? value() : value;
     } else if (expr instanceof Lambda) {
         //console.log('Lambda:', expr.param, expr.body);
@@ -17,7 +17,7 @@ function evaluater(expr, env = new Environment()) {
             return evaluater(expr.body, localEnv);
         };
     } else if (expr instanceof UnaryOp) {
-        let operand = evaluate(expr.operand, env);
+        let operand = evaluater(expr.operand, env);
         switch (expr.operator) {
             case '-': return -operand;
             case '!': return !operand;
@@ -315,7 +315,7 @@ class Environment {
     }
 
     define(name, value) {
-        //console.log('Define:', name);
+        console.log('Define:', name);
         this.bindings[name] = value;
     }
 
@@ -331,26 +331,8 @@ class Environment {
         throw new Error(`Variable ${name} is not defined`);
     }
 
-    claimArg() {
-        let scope = this;
-        const name = 'unclaimed arg';
-        while (scope !== null) {
-            if (name in scope.bindings) {
-                //console.log('<<< Claiming:', name);
-                let arg = scope.bindings[name];
-                delete scope.bindings[name];
-                return arg;
-            }
-            scope = scope.parent;
-        }
-
-        return null;
-        //throw new Error(`Unclaimed argument is not found`);
-    }
-
     extend() {
         return new Environment(this);
-        //return this;
     }
 }
 
@@ -363,54 +345,80 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
         stack.push({ expr, env, cont});
     }
 
+    let i = 0;
+
     while (stack.length > 0) {
         const { expr, env, cont } = stack.pop();
         //console.log('sl:', stack.length, 'Evaluating:', expr/*, env, cont*/);
-        console.log('Evaluating:', expr.toString());
+        //console.log('Evaluating:', expr.toString());
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             value = cont(expr.value);
         } else if (expr instanceof Var) {
             let val = env.lookup(expr.name);
-            console.log('Var lookup:', expr.name, val);
+            //console.log('Var lookup:', expr.name, val);
             if(typeof val !== 'function') {
                 //console.log('Var lookup:', expr.name, val, cont);
                 throw new Error('Var lookup returned not a function');
             }
             val(cont);
         } else if (expr instanceof Lambda) {
-            //console.log('Evaluating lambda: #', expr.param, expr.body);
-            const lambdaEnv = env.extend();
-            let argThunk = lambdaEnv.claimArg();  // Claim the argument
-
-            // we are not supposed to apply anything to this lambda ?
-            if(argThunk != null) {
-                lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
-            }
-            stackPush(expr.body, lambdaEnv, cont);
+            value = cont((argThunk) => {
+                //console.log('Evaluating lambda: #', expr.param, expr.body);
+                const lambdaEnv = env.extend();
+                // we are not supposed to apply anything to this lambda ?
+                //if(argThunk != null) {
+                    lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
+                //}
+                stackPush(expr.body, lambdaEnv, cont);
+                
+            });
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
-                // Define a thunk that is only evaluated when accessed
-                let argThunk = (contThunk) => {
-                    //console.log('$ Evaluating lambda arg');
-                    //console.log(argThunk, cont)
-                    stackPush(
-                        expr.right,
-                        env.extend(),
-                        contThunk
-                    );
-                };
 
                 //console.log('>>> Storing unclaimed arg:', expr.right.toString());
-                const applyEnv = env.extend();
-                applyEnv.define('unclaimed arg', argThunk);  // Store the thunk directly
+                //const applyEnv = env.extend();
+                //applyEnv.define('unclaimed arg', argThunk);  // Store the thunk directly
+
+                /*
+                let func = evaluate(expr.left, env);
+                if (typeof func !== 'function') {
+                    throw new Error('Left operand must be a function for application.');
+                }
+                let argThunk = () => evaluate(expr.right, env);
+                console.log('Applying:', func, argThunk);
+                
+                let ret = func(argThunk);
+                console.log('Applying result:', ret);
+                //console.log('Reductions:', ++reductions);
+                return cont(ret);
+                */
 
                 stackPush(
                     expr.left,
-                    applyEnv,
+                    env,
                     (param) => {
+                        //console.log('$ left cont');
+
+                        let argThunk = (contThunk) => {
+                            //console.log('$ Evaluating lambda arg');
+                            //console.log(argThunk, cont)
+                            stackPush(
+                                expr.right,
+                                env,//.extend(),
+                                contThunk
+                            );
+                        };
+
+                        //if(param == undefined) {
+                        //    stack = [];
+                        //}
+                        let ret = typeof param == 'function' ? param(argThunk) : param;
+                        //console.log("Ret:", ret);
+
                         //console.log('$ cont left:', expr.left, param, cont);
-                        return cont(param);
+                        //console.log(cont, ret);
+                        return cont(ret)//cont(param);
                     }
                 );
             }
@@ -455,9 +463,16 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                 stackPush(condition ? expr.trueBranch : expr.falseBranch, env, cont );
             });
         }
+
+        //console.log('Stack left:', stack.length);
+        if(typeof value == 'function')
+            value();
+
+        if(i++ > 5000)
+            break;
     }
 
-    return value;  // The final result after all expressions are evaluated
+    return typeof value == 'function' ? value() : value;  // The final result after all expressions are evaluated
 }
 
 
@@ -469,13 +484,14 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 //let expr = parse('B$ L" B+ v" I$ I"');
 //let expr = parse('B$ L" v" I"');
 
-//let expr = 'L# I"';
+//let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8';
 //let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%';
-//let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%;';
+let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%';
 //let expr = 'U- B$ L" v" I$';
 //let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK';
+//let expr = 'B$ L# B$ v# I" L# v#';
+//let expr = 'B$ L$ B$ L" v" I$ I';
 
-let expr = 'B$ L# B$ v# I" L# v#';
 console.log(expr);
 const parsed = parse(expr);
 console.log(parsed.toString());
