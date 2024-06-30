@@ -66,9 +66,11 @@ function testICFPEvaluator() {
     runTest('Conditional false branch comp', '? F B* B* I$ I# B* I$ I# B* U- I$ U- I$', 9);
 
     // Test labmda abstractions and applications
+    runTest('Lambda simplest', 'L# I"', 1);
     runTest('Lambda simple', 'B$ L" v" I$', 3);
     runTest('Lambda negation', 'U- B$ L" v" I$', -3);
     runTest('Addition of two Lambdas simple', 'B+ B$ L" v" I$ B$ L" v" I$', 6);
+    runTest('Labmda no arg', 'B$ L# B$ v# I! L# I!', 0);
 
     
     runTest('Lambda simple add body', 'B$ L" B+ v" I$ I"', 4);
@@ -79,10 +81,13 @@ function testICFPEvaluator() {
     runTest('Lambda simple ops arg and body', 'B$ L" B+ v" v" B* I$ I#', 12);
 
     runTest('Lambda nested simple', 'B$ L$ B$ L" v" I$ I"', 3);
-    runTest('Spec lambda', 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK', 'Hello World!');
+    runTest('Spec lambda Hello World!', 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK', 'Hello World!');
     
     runTest('Lambda lazy param minimal', 'B$ L# I- v8', 12);    
-    runTest('Lambda nested from spec with lazy param', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);    
+    runTest('Lambda nested from spec with lazy param', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);
+    runTest('Lambda arg storing', 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%', 1);
+
+    runTest('Lambda var not found min', 'B$ L# B$ v# I! L# v#', 0);    
     runTest('Spec limit', 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%', 16);
 }
 

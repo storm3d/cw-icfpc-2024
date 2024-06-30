@@ -66,7 +66,7 @@ function encodeString(inputString) {
 }
 
 async function comm(raw) {
-  const data = encodeString(raw);
+  const data = raw;// encodeString(raw);
   const host = 'boundvariable.space';
   const url = '/communicate';
 
@@ -94,7 +94,7 @@ async function comm(raw) {
           reject(new Error(`Request Failed. Status Code: ${res.statusCode}`));
         } else {
           try {
-            console.log("Comm result raw:", responseBody)
+            //console.log("Comm result raw:", responseBody)
             const expr = eval.parse(responseBody);
             const decoded = eval.evaluate(expr);
             resolve(decoded);

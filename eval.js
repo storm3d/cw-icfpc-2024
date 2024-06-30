@@ -1,3 +1,76 @@
+function evaluater(expr, env = new Environment()) {
+    console.log('Evaluating:', expr.toString());
+
+    if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
+        return expr.value;
+    } else if (expr instanceof Var) {
+        let value = env.lookup(expr.name);
+        // If the result is a thunk (function), evaluate it to get the actual value
+        console.log('Var lookup:', expr.name, value);
+        return typeof value === 'function' ? value() : value;
+    } else if (expr instanceof Lambda) {
+        //console.log('Lambda:', expr.param, expr.body);
+        return function(arg) {
+            // Create a new environment for the body of the lambda, with the parameter bound
+            const localEnv = env.extend();
+            localEnv.define(expr.param, arg);
+            return evaluater(expr.body, localEnv);
+        };
+    } else if (expr instanceof UnaryOp) {
+        let operand = evaluate(expr.operand, env);
+        switch (expr.operator) {
+            case '-': return -operand;
+            case '!': return !operand;
+            case '#': return parseBase94ToInt(encodeString(operand));  // Convert base-94 encoded string to integer
+            case '$': return decodeString(intToBase94(operand));  // Convert integer to base-94 encoded string
+            // Add more unary operations as per your language specification
+            default:
+                throw new Error(`Unknown unary operator: ${operator}`);
+        }
+    } else if (expr instanceof BinaryOp) {
+        if (expr.operator === '$') {
+            let func = evaluater(expr.left, env);
+            if (typeof func !== 'function') {
+                throw new Error('Left operand must be a function for application.');
+            }
+            let argThunk = () => evaluater(expr.right, env);
+            //console.log('Applying:', func, argThunk);
+            let ret = func(argThunk);
+            //console.log('Applying result:', ret);
+            //console.log('Reductions:', ++reductions);
+            return ret;
+        } else {
+            let left = evaluater(expr.left, env);
+            let right = evaluater(expr.right, env);
+            switch (expr.operator) {
+                case '+': return left + right;
+                case '-': return left - right;
+                case '*': return left * right;
+                case '/': return Math.floor(left / right);
+                case '%': return left % right;
+                case '>': return left > right;
+                case '<': return left < right;
+                case '=': return left === right;
+                case '|': return left || right;
+                case '&': return left && right;
+                case '.': return `${left}${right}`;
+                case 'T': return left.substring(0, right);
+                case 'D': return left.substring(0, left.length - right);            
+                default: throw new Error("Unsupported binary operator " + expr.operator);
+            }
+        }
+    } else if (expr instanceof Conditional) {
+        let condition = evaluater(expr.condition, env);
+        if (condition) {
+            return evaluater(expr.trueBranch, env);
+        } else {
+            return evaluater(expr.falseBranch, env);
+        }
+    }
+}
+
+let reductions = 0;
+
 // Helper to convert base-94 string to integer
 function parseBase94ToInt(base94) {
     const chars = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
@@ -74,12 +147,20 @@ class Bool extends Expr {
         super();
         this.value = value;
     }
+
+    toString() {
+        return this.value;
+    }
 }
 
 class Int extends Expr {
     constructor(value) {
         super();
         this.value = value;
+    }
+
+    toString() {     
+        return this.value;
     }
 }
 
@@ -88,12 +169,20 @@ class Str extends Expr {
         super();
         this.value = value;
     }
+
+    toString() {     
+        return this.value;
+    }
 }
 
 class Var extends Expr {
     constructor(name) {
         super();
         this.name = name;
+    }
+
+    toString() {
+        return "v" + this.name;
     }
 }
 
@@ -103,13 +192,9 @@ class Lambda extends Expr {
         this.param = param;
         this.body = body;
     }
-}
 
-class App extends Expr {
-    constructor(func, arg) {
-        super();
-        this.func = func;
-        this.arg = arg;
+    toString() {
+        return "L" + this.param + " (" + this.body.toString() + ")";
     }
 }
 
@@ -118,6 +203,10 @@ class UnaryOp extends Expr {
         super();
         this.operator = operator;
         this.operand = operand;
+    }
+
+    toString() {
+        return this.operator + this.operand.toString();
     }
 }
 
@@ -128,6 +217,10 @@ class BinaryOp extends Expr {
         this.left = left;
         this.right = right;
     }
+
+    toString() {
+        return this.left.toString() + " " + this.operator + " " + this.right.toString();
+    }
 }
 
 class Conditional extends Expr {
@@ -136,6 +229,10 @@ class Conditional extends Expr {
         this.condition = condition;
         this.trueBranch = trueBranch;
         this.falseBranch = falseBranch;
+    }
+
+    toString() {
+        return "(" + this.condition.toString() + " ? " + this.trueBranch.toString() + " : " + this.falseBranch.toString() + ")";
     }
 }
 
@@ -218,7 +315,7 @@ class Environment {
     }
 
     define(name, value) {
-        //console.log('Define:', name, value);
+        //console.log('Define:', name);
         this.bindings[name] = value;
     }
 
@@ -239,18 +336,21 @@ class Environment {
         const name = 'unclaimed arg';
         while (scope !== null) {
             if (name in scope.bindings) {
-                //console.log('Claiming:', name, scope.bindings[name]);
+                //console.log('<<< Claiming:', name);
                 let arg = scope.bindings[name];
                 delete scope.bindings[name];
                 return arg;
             }
             scope = scope.parent;
         }
-        throw new Error(`Unclaimed argument is not found`);
+
+        return null;
+        //throw new Error(`Unclaimed argument is not found`);
     }
 
     extend() {
         return new Environment(this);
+        //return this;
     }
 }
 
@@ -266,21 +366,27 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     while (stack.length > 0) {
         const { expr, env, cont } = stack.pop();
         //console.log('sl:', stack.length, 'Evaluating:', expr/*, env, cont*/);
-        //console.log('Evaluating:', expr, env, cont);
+        console.log('Evaluating:', expr.toString());
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             value = cont(expr.value);
         } else if (expr instanceof Var) {
             let val = env.lookup(expr.name);
-            if(typeof val !== 'function')
+            console.log('Var lookup:', expr.name, val);
+            if(typeof val !== 'function') {
+                //console.log('Var lookup:', expr.name, val, cont);
                 throw new Error('Var lookup returned not a function');
-            //console.log('Var lookup:', expr.name, val, cont);
+            }
             val(cont);
         } else if (expr instanceof Lambda) {
             //console.log('Evaluating lambda: #', expr.param, expr.body);
-            let argThunk = env.claimArg();  // Claim the argument
             const lambdaEnv = env.extend();
-            lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
+            let argThunk = lambdaEnv.claimArg();  // Claim the argument
+
+            // we are not supposed to apply anything to this lambda ?
+            if(argThunk != null) {
+                lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
+            }
             stackPush(expr.body, lambdaEnv, cont);
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
@@ -295,6 +401,7 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                     );
                 };
 
+                //console.log('>>> Storing unclaimed arg:', expr.right.toString());
                 const applyEnv = env.extend();
                 applyEnv.define('unclaimed arg', argThunk);  // Store the thunk directly
 
@@ -353,8 +460,6 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     return value;  // The final result after all expressions are evaluated
 }
 
-let reductions = 0;
-
 
 //let expr = parse('B$ L" B+ v" v" I$');
 //let expr = parse('B$ L" B+ I$ I$ I$');
@@ -363,7 +468,41 @@ let reductions = 0;
 //console.log("Evaluated recursive:", eval.evaluater(expr));
 //let expr = parse('B$ L" B+ v" I$ I"');
 //let expr = parse('B$ L" v" I"');
-let expr = parse('U- B$ L" v" I$');
-console.log("Evaluated:", evaluate(expr));
+
+//let expr = 'L# I"';
+//let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%';
+//let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%;';
+//let expr = 'U- B$ L" v" I$';
+//let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK';
+
+let expr = 'B$ L# B$ v# I" L# v#';
+console.log(expr);
+const parsed = parse(expr);
+console.log(parsed.toString());
+console.log("Evaluated recursively:", evaluater(parsed));
+console.log("Evaluated:", evaluate(parsed));
+
 
 module.exports = { parse, evaluate};
+
+/*
+
+L1 
+    (L2 <-- #c1 -> s3
+        (
+            v1 
+            $ 
+            1
+        )
+        $ 
+        1
+    ) 
+    $ 
+    L1 <-- #s2
+        (
+            L2 (1)
+        )
+    $ 
+    1 <-- #s1
+
+*/
