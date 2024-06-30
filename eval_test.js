@@ -70,6 +70,8 @@ function testICFPEvaluator() {
     runTest('Lambda negation', 'U- B$ L" v" I$', -3);
     runTest('Addition of two Lambdas simple', 'B+ B$ L" v" I$ B$ L" v" I$', 6);
 
+    
+    runTest('Lambda simple add body', 'B$ L" B+ v" I$ I"', 4);
     runTest('Lambda simple mul body', 'B$ L" v" B* I$ I$', 9);
     runTest('Lambda simple add arg', 'B$ L" B+ v" v" I$', 6);
     
@@ -82,8 +84,6 @@ function testICFPEvaluator() {
     runTest('Lambda lazy param minimal', 'B$ L# I- v8', 12);    
     runTest('Lambda nested from spec with lazy param', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);    
     runTest('Spec limit', 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%', 16);
-
-    
 }
 
 // Run the test function
@@ -92,10 +92,10 @@ testICFPEvaluator();
 //let expr = eval.parse('B$ L" v" I$');
 //let expr = eval.parse('B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%');
 //let expr = eval.parse('B$ L# B$ L" B+ v" v" B* I$ I# v8');
-let expr = eval.parse('B$ L" B+ v" v" I$');
+//let expr = eval.parse('B$ L" B+ v" v" I$');
 //console.log(expr);
 //console.log("Evaluated recursive:", eval.evaluater(expr));
-console.log("Evaluated:", eval.evaluate(expr));
+//console.log("Evaluated:", eval.evaluate(expr));
 
 /*
 let expr = parse("B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK");

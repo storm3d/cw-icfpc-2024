@@ -234,6 +234,21 @@ class Environment {
         throw new Error(`Variable ${name} is not defined`);
     }
 
+    claimArg() {
+        let scope = this;
+        const name = 'unclaimed arg';
+        while (scope !== null) {
+            if (name in scope.bindings) {
+                //console.log('Claiming:', name, scope.bindings[name]);
+                let arg = scope.bindings[name];
+                delete scope.bindings[name];
+                return arg;
+            }
+            scope = scope.parent;
+        }
+        throw new Error(`Unclaimed argument is not found`);
+    }
+
     extend() {
         return new Environment(this);
     }
@@ -243,68 +258,61 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     let stack = [{ expr: rootExpr, env: rootEnv, cont: (result) => result }];
     let value;
 
+    function stackPush(expr, env, cont) {
+        //console.log('Pushing to stack:', expr/*, env, cont*/);
+        stack.push({ expr, env, cont});
+    }
+
     while (stack.length > 0) {
         const { expr, env, cont } = stack.pop();
+        //console.log('sl:', stack.length, 'Evaluating:', expr/*, env, cont*/);
         //console.log('Evaluating:', expr, env, cont);
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             value = cont(expr.value);
         } else if (expr instanceof Var) {
-            let val = env.lookup(expr.name);            
-            //console.log('Var:', expr.name, val, typeof val);
-            value = cont(typeof val === 'function' ? val() : val);
+            let val = env.lookup(expr.name);
+            if(typeof val !== 'function')
+                throw new Error('Var lookup returned not a function');
+            //console.log('Var lookup:', expr.name, val, cont);
+            val(cont);
         } else if (expr instanceof Lambda) {
-            // When lambda is evaluated, return a function that sets up the proper environment and pushes the lambda body onto the stack
-            value = cont((arg) => {
-                const lambdaEnv = env.extend(); // Extend the current environment
-                lambdaEnv.define(expr.param, arg); // Define the parameter with the passed argument
-                return () => {
-                    stack.push({ expr: expr.body, env: lambdaEnv, cont }); // Push the body to be evaluated in the new environment
-                };
-            });
+            //console.log('Evaluating lambda: #', expr.param, expr.body);
+            let argThunk = env.claimArg();  // Claim the argument
+            const lambdaEnv = env.extend();
+            lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
+            stackPush(expr.body, lambdaEnv, cont);
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
-                stack.push({
-                    expr: expr.left,  // Evaluate the function part first
-                    env,
-                    cont: (func) => {
-                        //console.log('Function:', func);
-                        //console.log('Function type:', typeof func);
-                        if (typeof func !== 'function') {
-                            return cont(func);  // If not a function, return the value as is
-                        }
-        
-                        stack.push({
-                            expr: expr.right,  // Then evaluate the argument part
-                            env,
-                            cont: (arg) => {
-                                // Apply the function to the argument
-                                let result = func(() => arg); // arg is passed as a thunk
-        
-                                // Check if the result of applying the function is itself a function
-                                if (typeof result === 'function') {
-                                    // If it's a function, it needs to be evaluated
-                                    stack.push({
-                                        expr: result(), // Evaluate this function
-                                        env,
-                                        cont: (evaluatedResult) => {
-                                            // Pass the evaluated result up
-                                            return cont(evaluatedResult);
-                                        }
-                                    });
-                                } else {
-                                    // If not a function, pass the result directly up
-                                    return cont(result);
-                                }
-                            }
-                        });
+                // Define a thunk that is only evaluated when accessed
+                let argThunk = (contThunk) => {
+                    //console.log('$ Evaluating lambda arg');
+                    //console.log(argThunk, cont)
+                    stackPush(
+                        expr.right,
+                        env.extend(),
+                        contThunk
+                    );
+                };
+
+                const applyEnv = env.extend();
+                applyEnv.define('unclaimed arg', argThunk);  // Store the thunk directly
+
+                stackPush(
+                    expr.left,
+                    applyEnv,
+                    (param) => {
+                        //console.log('$ cont left:', expr.left, param, cont);
+                        return cont(param);
                     }
-                });
+                );
             }
             else {
-                stack.push({ expr: expr.left, env, cont: (left) => {
-                    stack.push({ expr: expr.right, env, cont: (right) => {
-                        switch (expr.operator) {                            
+                stackPush(expr.left, env, (left) => {
+                    //console.log('Binary cont 1:', expr.operator, left);
+                    stackPush(expr.right, env, (right) => {
+                        //console.log('Binary cont 2:', expr.operator, right);
+                        switch (expr.operator) {
                             case '+': return cont(left + right);
                             case '-': return cont(left - right);
                             case '*': return cont(left * right);
@@ -320,12 +328,13 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                             case 'D': return cont(right.slice(left));                            
                             default: throw new Error("Unsupported binary operator " + expr.operator);
                         }
-                    }});
-                }});
+                    });
+                });
             }
         } else if (expr instanceof UnaryOp) {
             //console.log('Unary pushed:', expr.operator, expr.operand);
-            stack.push({ expr: expr.operand, env, cont: (operand) => {
+            stackPush(expr.operand, env, (operand) => {
+                //console.log("Unary cont", operand);
                 switch (expr.operator) {
                     case '-': return cont(-operand);
                     case '!': return cont(!operand);
@@ -333,102 +342,28 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                     case '$': return cont(decodeString(intToBase94(operand)));
                     default: throw new Error(`Unknown unary operator: ${expr.operator}`);
                 }
-            }});
+            });
         } else if (expr instanceof Conditional) {
-            stack.push({ expr: expr.condition, env, cont: (condition) => {
-                stack.push({ expr: condition ? expr.trueBranch : expr.falseBranch, env, cont });
-            }});
+            stackPush(expr.condition, env, (condition) => {
+                stackPush(condition ? expr.trueBranch : expr.falseBranch, env, cont );
+            });
         }
     }
 
     return value;  // The final result after all expressions are evaluated
 }
 
-/*
-function evaluater(expr, env = new Environment()) {
-    if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
-        return expr.value;
-    } else if (expr instanceof Var) {
-        let value = env.lookup(expr.name);
-        // If the result is a thunk (function), evaluate it to get the actual value
-        return typeof value === 'function' ? value() : value;
-    } else if (expr instanceof Lambda) {
-        //console.log('Lambda:', expr.param, expr.body);
-        return function(arg) {
-            // Create a new environment for the body of the lambda, with the parameter bound
-            const localEnv = env.extend();
-            localEnv.define(expr.param, arg);
-            return evaluate(expr.body, localEnv);
-        };
-    } else if (expr instanceof UnaryOp) {
-        let operand = evaluate(expr.operand, env);
-        switch (expr.operator) {
-            case '-': return -operand;
-            case '!': return !operand;
-            case '#': return parseBase94ToInt(encodeString(operand));  // Convert base-94 encoded string to integer
-            case '$': return decodeString(intToBase94(operand));  // Convert integer to base-94 encoded string
-            // Add more unary operations as per your language specification
-            default:
-                throw new Error(`Unknown unary operator: ${operator}`);
-        }
-    } else if (expr instanceof BinaryOp) {
-        if (expr.operator === '$') {
-            let func = evaluate(expr.left, env);
-            if (typeof func !== 'function') {
-                throw new Error('Left operand must be a function for application.');
-            }
-            let argThunk = () => evaluate(expr.right, env);
-            //console.log('Applying:', func, argThunk);
-            let ret = func(argThunk);
-            //console.log('Applying result:', ret);
-            console.log('Reductions:', ++reductions);
-            return ret;
-        } else {
-            let left = evaluate(expr.left, env);
-            let right = evaluate(expr.right, env);
-            switch (expr.operator) {
-                case '+': return left + right;
-                case '-': return left - right;
-                case '*': return left * right;
-                case '/': return Math.floor(left / right);
-                case '%': return left % right;
-                case '>': return left > right;
-                case '<': return left < right;
-                case '=': return left === right;
-                case '|': return left || right;
-                case '&': return left && right;
-                case '.': return `${left}${right}`;
-                case 'T': return left.substring(0, right);
-                case 'D': return left.substring(0, left.length - right);            
-                default: throw new Error("Unsupported binary operator " + expr.operator);
-            }
-        }
-    } else if (expr instanceof Conditional) {
-        let condition = evaluate(expr.condition, env);
-        if (condition) {
-            return evaluate(expr.trueBranch, env);
-        } else {
-            return evaluate(expr.falseBranch, env);
-        }
-    }
-}
-
-function evaluateUnary(operator, operand) {
-    console.log(`Unary operation ${operator} on: ${operand}`);
-    switch (operator) {
-        case '!':
-            return !operand;
-        case '-':
-            return -operand;
-        case '#':
-                return base94ToInt(encodeString(operand)); // Convert base-94 encoded string to integer
-        case '$':
-            return decodeString(intToBase94(operand));  // Convert integer to base-94 encoded string
-        default:
-            throw new Error(`Unsupported unary operator: ${operator}`);
-    }
-}
-*/
 let reductions = 0;
+
+
+//let expr = parse('B$ L" B+ v" v" I$');
+//let expr = parse('B$ L" B+ I$ I$ I$');
+//let expr = parse('B+ I# I$');
+//console.log(expr);
+//console.log("Evaluated recursive:", eval.evaluater(expr));
+//let expr = parse('B$ L" B+ v" I$ I"');
+//let expr = parse('B$ L" v" I"');
+let expr = parse('U- B$ L" v" I$');
+console.log("Evaluated:", evaluate(expr));
 
 module.exports = { parse, evaluate};
