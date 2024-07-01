@@ -1,5 +1,5 @@
 function evaluater(expr, env = new Environment()) {
-    //console.log('Evaluating:', expr.toString());
+    console.log('Evaluating:', expr.toString());
 
     if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
         return expr.value;
@@ -50,7 +50,9 @@ function evaluater(expr, env = new Environment()) {
                 case '%': return left % right;
                 case '>': return left > right;
                 case '<': return left < right;
-                case '=': return left === right;
+                case '=': 
+                console.log('Comparing:', left, right);
+                return left === right;
                 case '|': return left || right;
                 case '&': return left && right;
                 case '.': return `${left}${right}`;
@@ -322,8 +324,8 @@ class Environment {
     lookup(name) {
         let scope = this;
         while (scope !== null) {
+            console.log('Lookup:', name, scope.bindings[name]);
             if (name in scope.bindings) {
-                //console.log('Lookup:', name, scope.bindings[name]);
                 return scope.bindings[name];
             }
             scope = scope.parent;
@@ -350,9 +352,10 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     while (stack.length > 0) {
         const { expr, env, cont } = stack.pop();
         //console.log('sl:', stack.length, 'Evaluating:', expr/*, env, cont*/);
-        //console.log('Evaluating:', expr.toString());
+        console.log('Evaluating:', expr.toString());
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
+            console.log('Value:', expr.value);
             value = cont(expr.value);
         } else if (expr instanceof Var) {
             let val = env.lookup(expr.name);
@@ -401,7 +404,7 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                         //console.log('$ left cont');
 
                         let argThunk = (contThunk) => {
-                            //console.log('$ Evaluating lambda arg');
+                            console.log('$ Evaluating lambda arg', expr.right.toString());
                             //console.log(argThunk, cont)
                             stackPush(
                                 expr.right,
@@ -435,7 +438,11 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                             case '%': return cont(left % right);
                             case '>': return cont(left > right);
                             case '<': return cont(left < right);
-                            case '=': return cont(left === right);
+                            case '=':
+                                
+                console.log('Comparing:', left, right);
+                console.trace(); 
+                            return cont(left === right);
                             case '|': return cont(left || right);
                             case '&': return cont(left && right);
                             case '.': return cont(`${left}${right}`);
@@ -468,7 +475,7 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
         if(typeof value == 'function')
             value();
 
-        if(i++ > 5000)
+        if(i++ > 100)
             break;
     }
 
@@ -486,13 +493,15 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 
 //let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8';
 //let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%';
-let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%';
+//let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!';
+//let expr = 'B$ B$ L" L# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!'; // reduce less
+let expr = 'B$ B$ L" L# v# I"" I!"';
 //let expr = 'U- B$ L" v" I$';
 //let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK';
 //let expr = 'B$ L# B$ v# I" L# v#';
 //let expr = 'B$ L$ B$ L" v" I$ I';
 
-console.log(expr);
+//console.log(expr);
 const parsed = parse(expr);
 console.log(parsed.toString());
 console.log("Evaluated recursively:", evaluater(parsed));

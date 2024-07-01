@@ -87,6 +87,8 @@ function testICFPEvaluator() {
     runTest('Lambda nested from spec with lazy param', 'B$ L# B$ L" B+ v" v" B* I$ I# v8', 12);
     runTest('Lambda arg storing', 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%', 1);
 
+    
+    runTest('Lambda nested var overwrite', 'B$ B$ L" L# v# I" I!', 0);
     runTest('Lambda var not found min', 'B$ L# B$ v# I! L# v#', 0);    
     runTest('Spec limit', 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%', 16);
 }
