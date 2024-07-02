@@ -11,6 +11,7 @@ function evaluater(expr, env = new Environment()) {
     } else if (expr instanceof Lambda) {
         //console.log('Lambda:', expr.param, expr.body);
         return function(arg) {
+            console.log('Applying lambda:', expr.param, expr.body);
             // Create a new environment for the body of the lambda, with the parameter bound
             const localEnv = env.extend();
             localEnv.define(expr.param, arg);
@@ -29,15 +30,23 @@ function evaluater(expr, env = new Environment()) {
         }
     } else if (expr instanceof BinaryOp) {
         if (expr.operator === '$') {
+            console.log('Binary left:', expr.left.toString(), "right:", expr.right.toString());
+            let argThunk = () => {
+                console.log('Applying:', expr.right.toString()); 
+                let result = evaluater(expr.right, env);
+                console.log('Applying result:', result);
+                return result;
+            };
+
             let func = evaluater(expr.left, env);
             if (typeof func !== 'function') {
                 throw new Error('Left operand must be a function for application.');
             }
-            let argThunk = () => evaluater(expr.right, env);
+            
             //console.log('Applying:', func, argThunk);
             let ret = func(argThunk);
-            //console.log('Applying result:', ret);
-            //console.log('Reductions:', ++reductions);
+            console.log("Ret:", ret);
+            console.log('Reductions:', ++reductions);
             return ret;
         } else {
             let left = evaluater(expr.left, env);
@@ -318,13 +327,16 @@ class Environment {
 
     define(name, value) {
         console.log('Define:', name);
+        if (name in this.bindings) {
+            return;
+        }
         this.bindings[name] = value;
     }
 
     lookup(name) {
         let scope = this;
         while (scope !== null) {
-            console.log('Lookup:', name, scope.bindings[name]);
+            //console.log('Lookup:', name, scope.bindings[name]);
             if (name in scope.bindings) {
                 return scope.bindings[name];
             }
@@ -334,6 +346,7 @@ class Environment {
     }
 
     extend() {
+        //return this;
         return new Environment(this);
     }
 }
@@ -356,72 +369,42 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             console.log('Value:', expr.value);
-            value = cont(expr.value);
+            value = expr.value;
         } else if (expr instanceof Var) {
             let val = env.lookup(expr.name);
             //console.log('Var lookup:', expr.name, val);
-            if(typeof val !== 'function') {
-                //console.log('Var lookup:', expr.name, val, cont);
+            if(typeof val !== 'function')
                 throw new Error('Var lookup returned not a function');
-            }
-            val(cont);
+            value = cont(val);
         } else if (expr instanceof Lambda) {
             value = cont((argThunk) => {
-                //console.log('Evaluating lambda: #', expr.param, expr.body);
+                console.log('Evaluating lambda: #', expr.param, expr.body);
                 const lambdaEnv = env.extend();
-                // we are not supposed to apply anything to this lambda ?
-                //if(argThunk != null) {
-                    lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
-                //}
+                lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
                 stackPush(expr.body, lambdaEnv, cont);
-                
             });
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
-
-                //console.log('>>> Storing unclaimed arg:', expr.right.toString());
-                //const applyEnv = env.extend();
-                //applyEnv.define('unclaimed arg', argThunk);  // Store the thunk directly
-
-                /*
-                let func = evaluate(expr.left, env);
-                if (typeof func !== 'function') {
-                    throw new Error('Left operand must be a function for application.');
-                }
-                let argThunk = () => evaluate(expr.right, env);
-                console.log('Applying:', func, argThunk);
-                
-                let ret = func(argThunk);
-                console.log('Applying result:', ret);
-                //console.log('Reductions:', ++reductions);
-                return cont(ret);
-                */
+                console.log('Binary left:', expr.left.toString(), "right:", expr.right.toString());
+                let argThunk = (contThunk) => {
+                    console.log('Applying', expr.right.toString());
+                    //console.log(argThunk, cont)
+                    stackPush(
+                        expr.right,
+                        env,//.extend(),
+                        contThunk
+                    );
+                };
 
                 stackPush(
                     expr.left,
                     env,
                     (param) => {
-                        //console.log('$ left cont');
-
-                        let argThunk = (contThunk) => {
-                            console.log('$ Evaluating lambda arg', expr.right.toString());
-                            //console.log(argThunk, cont)
-                            stackPush(
-                                expr.right,
-                                env,//.extend(),
-                                contThunk
-                            );
-                        };
-
-                        //if(param == undefined) {
-                        //    stack = [];
-                        //}
-                        let ret = typeof param == 'function' ? param(argThunk) : param;
-                        //console.log("Ret:", ret);
-
-                        //console.log('$ cont left:', expr.left, param, cont);
-                        //console.log(cont, ret);
-                        return cont(ret)//cont(param);
+                        console.log("Applying:", param, argThunk);
+                        let ret = param(argThunk);
+                        console.log("Ret:", ret);
+                        console.log('Reductions:', ++reductions);
+                        cont(ret)//cont(param);
                     }
                 );
             }
@@ -467,18 +450,19 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
             });
         } else if (expr instanceof Conditional) {
             stackPush(expr.condition, env, (condition) => {
-                stackPush(condition ? expr.trueBranch : expr.falseBranch, env, cont );
+                stackPush(condition ? expr.trueBranch : expr.falseBranch, env, cont);
             });
         }
-
-        //console.log('Stack left:', stack.length);
-        if(typeof value == 'function')
-            value();
 
         if(i++ > 100)
             break;
     }
 
+    //console.log('Stack left:', stack.length);
+    //if(typeof value == 'function')
+    //   value();
+
+    console.log('Final value:', value);
     return typeof value == 'function' ? value() : value;  // The final result after all expressions are evaluated
 }
 
@@ -489,22 +473,25 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 //console.log(expr);
 //console.log("Evaluated recursive:", eval.evaluater(expr));
 //let expr = parse('B$ L" B+ v" I$ I"');
-//let expr = parse('B$ L" v" I"');
+let expr = 'B$ L" I" I"';
 
 //let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8';
 //let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%';
 //let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!';
 //let expr = 'B$ B$ L" L# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!'; // reduce less
-let expr = 'B$ B$ L" L# v# I"" I!"';
+//let expr = 'B$ B$ L" L" v" I"" I!"';
 //let expr = 'U- B$ L" v" I$';
 //let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK';
 //let expr = 'B$ L# B$ v# I" L# v#';
 //let expr = 'B$ L$ B$ L" v" I$ I';
 
-//console.log(expr);
+console.log(expr);
 const parsed = parse(expr);
 console.log(parsed.toString());
 console.log("Evaluated recursively:", evaluater(parsed));
+
+console.log(" ");
+reductions = 0;
 console.log("Evaluated:", evaluate(parsed));
 
 
