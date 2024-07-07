@@ -1,7 +1,7 @@
 const https = require('https');
 const fs = require('fs');
 const findPath = require('./lambdaman.js');
-const eval = require('./eval.js');
+//const eval = require('./eval.js');
 
 // Load the token from a file
 const token = fs.readFileSync('auth_token.txt', 'utf8').trim();
@@ -67,13 +67,15 @@ function encodeString(inputString) {
 
 async function comm(raw) {
   const data = "S'%4}).$%8"; //raw;//encodeString(raw);
-  const host = 'boundvariable.space';
+  const host = 'localhost';
+  const port = '8000';
   const url = '/communicate';
 
   const options = {
     hostname: host,
     path: url,
     method: 'POST',
+    port: port,
     headers: {
       'Content-Type': 'text/plain',
       'Content-Length': Buffer.byteLength(data),
@@ -95,8 +97,9 @@ async function comm(raw) {
         } else {
           try {
             console.log("Comm result raw:", responseBody)
-            const expr = eval.parse(responseBody);
-            const decoded = eval.evaluate(expr);
+            //const expr = eval.parse(responseBody);
+            //const decoded = eval.evaluate(expr);
+            const decoded = decodeString(responseBody);
             resolve(decoded);
           } catch (e) {
             reject(e);
