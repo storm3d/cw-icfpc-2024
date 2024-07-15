@@ -67,7 +67,7 @@ function encodeString(inputString) {
 
 async function comm(raw) {
   const data = "S'%4}).$%8"; //raw;//encodeString(raw);
-  const host = 'localhost';
+  const host = '45.33.61.46';
   const port = '8000';
   const url = '/communicate';
 
@@ -133,5 +133,6 @@ async function lambdamanlist(num) {
 
 //console.log(decodeToken('B. SF B$ B$ L" B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L$ L# ? B= v# I" v" B. v" B$ v$ B- v# I" Sl I#'))
 
+//comm()
 
 module.exports = {comm, encodeString};

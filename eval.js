@@ -205,7 +205,7 @@ class Lambda extends Expr {
     }
 
     toString() {
-        return "L" + this.param + " (" + this.body.toString() + ")";
+        return "(v" + this.param + " -> " + this.body.toString() + ")";
     }
 }
 
@@ -217,7 +217,7 @@ class UnaryOp extends Expr {
     }
 
     toString() {
-        return this.operator + this.operand.toString();
+        return "(" + this.operator + " " + this.operand.toString() + ")";
     }
 }
 
@@ -230,7 +230,7 @@ class BinaryOp extends Expr {
     }
 
     toString() {
-        return this.left.toString() + " " + this.operator + " " + this.right.toString();
+        return "(" + this.left.toString() + " " + this.operator + " " + this.right.toString() + ")";
     }
 }
 
@@ -473,18 +473,19 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 //console.log(expr);
 //console.log("Evaluated recursive:", eval.evaluater(expr));
 //let expr = parse('B$ L" B+ v" I$ I"');
-//let expr = 'B$ L" v" I"';
 
-//let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8';
-let expr = 'B$ L" B+ v" I" I# ';
+//let expr = 'B$ L" v" I"'; // 1
 
-//let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%';
-//let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%';
-//let expr = 'B$ B$ L" L# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!'; // reduce less
-//let expr = 'B$ B$ L" L" v" I"" I!"';
-//let expr = 'U- B$ L" v" I$';
-//let expr = 'U- B+ I$ I$';
-//let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK';
+//let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8'; // 12
+//let expr = 'B$ L" B+ v" I" I#'; // 3
+
+//let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%'; // UnusedInput 38
+//let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%'; // 16
+//let expr = 'B$ B$ L" L# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!'; // 0
+let expr = 'B$ B$ L" L" v" I"" I!"'; // 1 but gives wrong 95
+//let expr = 'U- B$ L" v" I$'; //- 3
+//let expr = 'U- B+ I$ I$'; // -6
+//let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK'; // Hello World!
 //let expr = 'B$ L# B$ v# I" L# v#';
 //let expr = 'B$ L$ B$ L" v" I$ I';
 //let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8';
