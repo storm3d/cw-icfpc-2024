@@ -326,7 +326,7 @@ class Environment {
     }
 
     define(name, value) {
-        console.log('Define:', name);
+        //console.log('Define:', name);
         if (name in this.bindings) {
             return;
         }
@@ -365,58 +365,64 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     while (stack.length > 0) {
         const { expr, env, cont } = stack.pop();
         //console.log('sl:', stack.length, 'Evaluating:', expr/*, env, cont*/);
-        console.log('Evaluating:', expr.toString());
+        //console.log('Evaluating:', expr.toString());
 
         if (expr instanceof Bool || expr instanceof Int || expr instanceof Str) {
             //console.log('Cont:', cont);
-            console.log('Value expr:', expr.value)
+            //console.log('Value and cont:', expr.value, cont)
             value = cont(expr.value);
-            console.log('Value conted:',  value);
+            //console.log('Value conted:',  value);
         } else if (expr instanceof Var) {
             let valFunc = env.lookup(expr.name);
-            //console.log('Var lookup:', expr.name, valFunc);
-            if(typeof valFunc !== 'function')
+            //console.log('Var lookup:', expr.name, valFunc, cont);
+            if(typeof valFunc !== 'function') {
                 throw new Error('Var lookup returned not a function');
-            valFunc(cont);
+                //cont(valFunc);
+            }
+            else {
+                //console.log('Var lookup:', valFunc, cont);
+                valFunc(cont);
+            }
         } else if (expr instanceof Lambda) {
             value = cont((argThunk) => {
-                console.log('Evaluating lambda: #', expr.param, expr.body);
+                //console.log('Evaluating lambda: #', expr.param, expr.body);
                 const lambdaEnv = env.extend();
                 lambdaEnv.define(expr.param, argThunk);  // Store the arg thunk as a named variable
                 stackPush(expr.body, lambdaEnv, cont);
             });
-            console.log('Lambda value:', value);
+            //console.log('Lambda value:', value);
         } else if (expr instanceof BinaryOp) {
             if(expr.operator === '$') {
-                console.log('Binary:', expr.left.toString(), "$", expr.right.toString());
+                //console.log('Binary:', expr.left.toString(), "$", expr.right.toString());
 
                 stackPush(
                     expr.left,
                     env,
-                    (param) => {
-                        let argThunk = () => {
-                            console.log('Pushing righ eval for:', expr.right.toString());
+                    (leftCont) => {
+                        let argThunk = (argThunkCont) => {
+                            //console.log('Pushing righ eval for:', expr.right.toString(), argThunkCont);
                             //console.log(argThunk, cont)
                             stackPush(
                                 expr.right,
-                                env,//.extend(),
-                                cont
+                                env,
+                                argThunkCont
                             );
                         };
 
-                        console.log("Applying:", param, argThunk, cont);
-                        if(typeof param !== 'function')
-                            return cont(param);
+                        //console.log("Applying:", leftCont, argThunk, cont);
+                        if(typeof leftCont !== 'function')
+                            return cont(leftCont);
                         else
-                            param(argThunk);
+                            leftCont(argThunk);
                     }
                 );
             }
             else {
+                //console.log('Binary:', expr.left, expr.operator, expr.right);
                 stackPush(expr.left, env, (left) => {
-                    console.log('Binary cont 1:', expr.operator, left);
+                    //console.log('Binary cont 1:', expr.operator, left);
                     stackPush(expr.right, env, (right) => {
-                        console.log('Binary cont 2:', expr.operator, right);
+                        //console.log('Binary cont 2:', expr.operator, right);
                         switch (expr.operator) {
                             case '+': return cont(left + right);
                             case '-': return cont(left - right);
@@ -437,9 +443,9 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
                 });
             }
         } else if (expr instanceof UnaryOp) {
-            console.log('Unary pushed:', expr.operator, expr.operand);
+            //console.log('Unary pushed:', expr.operator, expr.operand);
             stackPush(expr.operand, env, (operand) => {
-                console.log("Unary cont", operand);
+                //console.log("Unary cont", operand);
                 switch (expr.operator) {
                     case '-': return cont(-operand);
                     case '!': return cont(!operand);
@@ -462,7 +468,7 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
     //if(typeof value == 'function')
     //   value();
 
-    console.log('Final value:', value);
+    //console.log('Final value:', value);
     return typeof value == 'function' ? value() : value;  // The final result after all expressions are evaluated
 }
 
@@ -479,26 +485,25 @@ function evaluate(rootExpr, rootEnv = new Environment()) {
 //let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8'; // 12
 //let expr = 'B$ L" B+ v" I" I#'; // 3
 
-//let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%'; // UnusedInput 38
-//let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%'; // 16
+//let expr = 'B$ B$ L" B$ L# B$ v" I" I" L" L# I" I" I%'; // UnusedInput 38 but mine returns 1
+let expr = 'B$ B$ L" B$ L# B$ v" B$ v# v# L# B$ v" B$ v# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I%'; // 16
 //let expr = 'B$ B$ L" L# v# L" L# ? B= v# I! I" B$ L$ B+ B$ v" v$ B$ v" v$ B- v# I" I!'; // 0
-let expr = 'B$ B$ L" L" v" I"" I!"'; // 1 but gives wrong 95
+//let expr = 'B$ B$ L" L" v" I"" I!"'; // 1 but gives wrong 95
 //let expr = 'U- B$ L" v" I$'; //- 3
 //let expr = 'U- B+ I$ I$'; // -6
 //let expr = 'B$ B$ L# L$ v# B. SB%,,/ S}Q/2,$_ IK'; // Hello World!
-//let expr = 'B$ L# B$ v# I" L# v#';
-//let expr = 'B$ L$ B$ L" v" I$ I';
-//let expr = 'B$ L# B$ L" B+ v" v" B* I$ I# v8';
+//let expr = 'B$ L# B$ v# I" L# v#'; // 1
+//let expr = 'B$ L$ B$ L" v" I$ I'; // 3
 
-console.log(expr);
-const parsed = parse(expr);
-console.log(parsed.toString());
-console.log("Evaluated recursively:", evaluater(parsed));
+//console.log(expr);
+//const parsed = parse(expr);
+//console.log(parsed.toString());
+//console.log("Evaluated recursively:", evaluater(parsed));
 
-console.log(" ");
+//console.log(" ");
 reductions = 0;
-let result = evaluate(parsed);
-console.log("Evaluated:", result, typeof result);
+//let result = evaluate(parsed);
+//console.log("Evaluated:", result, typeof result);
 
 
 module.exports = { parse, evaluate};

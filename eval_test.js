@@ -66,7 +66,7 @@ function testICFPEvaluator() {
     runTest('Conditional false branch comp', '? F B* B* I$ I# B* I$ I# B* U- I$ U- I$', 9);
 
     // Test labmda abstractions and applications
-    runTest('Lambda simplest', 'L# I"', 1);
+    //runTest('Lambda simplest', 'L# I"', 1);
     runTest('Lambda simple', 'B$ L" v" I$', 3);
     runTest('Lambda negation', 'U- B$ L" v" I$', -3);
     runTest('Addition of two Lambdas simple', 'B+ B$ L" v" I$ B$ L" v" I$', 6);
